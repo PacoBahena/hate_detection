@@ -1,5 +1,4 @@
 .DS_Store
 .ipynb_checkpoints/*
-ia_hate/sources/single_source/corpus.csv
-ia_hate/sources/single_source/corpus2.csv
-ia_hate/sources/single_source/lyrics_catalog.csv
+ia_hate/data/*
+!ia_hate/data/README.md
