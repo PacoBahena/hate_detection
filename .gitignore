@@ -2,3 +2,4 @@
 .ipynb_checkpoints/*
 ia_hate/data/*
 !ia_hate/data/README.md
+ia_hate/preprocessing/etl_miso/.ipynb_checkpoints/*
