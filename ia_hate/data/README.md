@@ -6,8 +6,11 @@ There are 3 corpus of data used to train/test
 
 This corpus was created by the paper researchers of "A Language Model for Misogyny Detection in Latin American Spanish Driven by Multisource Feature Extraction
 and Transformers". Authors are Aldana-Molina.
-CorpusRNN is obtained artificially via a RNN, after using 163 mysoginistic lyrics as well
+CorpusRNN is obtained in part from web scraping and crawling, manually curating data, and in lesser form , artificially via a RNN, after using 163 mysoginistic lyrics as well
 as hand-picked keywords.
+
+This paper used Bert transformer learning to classify. results were rather standard. failed to identify subtle violence.
+
 3 files
 
 - lyrics.csv with the 163 handpicked songs
