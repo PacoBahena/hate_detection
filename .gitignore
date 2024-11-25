@@ -4,3 +4,4 @@ ia_hate/data/*
 !ia_hate/data/README.md
 ia_hate/preprocessing/etl_miso/.ipynb_checkpoints/*
 preprocessing/.ipynb_checkpoints/
+spam_classifier/.ipynb_checkpoints/
