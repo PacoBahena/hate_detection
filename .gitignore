@@ -10,3 +10,4 @@ ia_hate/.ipynb_checkpoints/*
 ia_hate/models/.ipynb_checkpoints/*
 ia_hate/models/cc.es.300.bin
 ia_hate/studies/state-of-the-art/.ipynb_checkpoints/*
+ia_hate/models/*.npy
