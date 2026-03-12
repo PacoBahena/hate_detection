@@ -25,5 +25,17 @@ El presente trabajo tiene como fin proponer un sistema de clasificación automá
 
 En ese contexto, este reporte de investigación aborda la construcción y evaluación de sistemas de clasificación binaria de misoginia para textos cortos en español. Se discutirán a detalle técnicas de procesamiento de lenguaje natural para el diseño de los mismos, usando diversas técnicas de limpieza, preprocesamiento y análisis con el objetivo final de determinar un sistema que tenga el mejor desempeño. Este ultimo siendo definido a partir de un sistema que optimize la precisión sin sacrificar la exhaustividad. 
 
+## Base de Datos. 
+
+### Origen de los datos.
+
+TODO  explicar el origen de los datos, básicamente el origen del misocorpus, sus 3 componentes y después los otros datos relacionados a la RNN. 
+
+### Análisis Exploratorio de la Base de Datos. 
+
+
+
+## 
+
 
 
