@@ -11,3 +11,7 @@ ia_hate/models/.ipynb_checkpoints/*
 ia_hate/models/cc.es.300.bin
 ia_hate/studies/state-of-the-art/.ipynb_checkpoints/*
 ia_hate/models/*.npy
+ia_hate/doc/.ipynb_checkpoints/*
+ia_hate/lineamientos/.ipynb_checkpoints/*
+ia_hate/master_data/.ipynb_checkpoints/*
+ia_hate/eda/.ipynb_checkpoints/eda-checkpoint.ipynb
