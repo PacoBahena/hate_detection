@@ -27,9 +27,61 @@ En ese contexto, este reporte de investigación aborda la construcción y evalua
 
 ## Base de Datos. 
 
-### Origen de los datos.
+Uno de los retos más significativos para emprender esta tarea es la recopilación de una base de datos que abarque las sutilezas, variantes y diversas connotaciones que caracterizan al idioma español. Como se mencionó anteriormente, el argot, el sarcasmo, las expresiones coloquiales típicas de dialectos regionales así como las variantes inherentes a un lenguaje tan extendido representan algunas de las dificultades. Afortunadamente, ya han existido esfuerzos, sobre todo de investigadores españoles, para consolidar observaciones que permitan entrenar sistemas de clasificación automática, entre los que destacan:
 
-TODO  explicar el origen de los datos, básicamente el origen del misocorpus, sus 3 componentes y después los otros datos relacionados a la RNN. 
+* La base de datos de AMI-Ibereval. 
+
+* La base de datos de Misocorpus 2020. 
+
+* Corpus RNN. 
+
+La base de datos sobre la que se realizó el presente trabajo se construyó a partir del MisoCorpus2020 y del Corpus RNN.
+
+### Origen de los datos. 
+
+#### MisoCorpus2020
+
+El misocorpus consiste de 7682 *tweets* (mensajes cortos de texto pertenecientes a la red social X) que fueron etiquetados como misóginos/no misóginos por un panel de expertos. Vale la pena mencionar que el consenso al respecto no siempre es unánime, lo cual demuestra la complejidad de la tarea de clasificación, así como confirma los comentarios al respecto de su dificultad mencionados en la sección anterior. 
+
+El corpus esta dividido en 3 subconjuntos:
+
+* VARW. El cual recopila tweets misóginos dirigidos hacia mujeres específicas de la esfera pública. (Celebridades de múltiples ámbitos).
+* SELA. El cual recopila tweets misóginos/no misóginos de diversas regiones de latinoamérica y españa.
+* DDDS. El cual recopila tweets misóginos/no misóginos que demuestren específicamente descrédito, dominancia, abuso sexual o estereotipos.
+ 
+Dada la naturaleza de estos subconjuntos, se espera que el sistema de clasificación a desarrollar pueda analizar la misogínia a partir de, respectivamente, un contexto social, variaciones de dialectos regionales y abusos específicos.
+
+#### Corpus RNN 
+
+El corpusRNN fue desarrollado con un enfoque particular hacia el español latinoamericano, a partir de modelos de lenguaje y generadores de datos. 
+
+Este corpus se constituye de:
+
+* Una compilación de canciones misóginas seleccionadas manualmente.
+* Refranes y expresiones populares latinoamericanas.
+* Texto sintético generado mediante modelos de redes neuronales recurrentes. (RNN)
+* La recopilación de textos aleatorios en español mediante un rastreador web que fue inicializado con palabras misóginas clave.
+
+La diversidad de estas fuentes permite que el corpus incorpore expresiones explícitas e implícitas de la misoginia, que abarquen aspectos importantes como expresiones de lenguaje irónico o contextualmente condicionado.
+
+
+
+#### Consolidación
+
+Juntos, ambos corpus incorporan datos que representan las siguientes ventajas:
+
+* contexto social.
+* variaciones del lenguaje de acuerdo a región.
+* Variantes específicas de misogínia.
+* contexto cultural.
+
+Sin embargo, vale la pena mencionar que la base datos consolidada también tiene ciertas desventajas.
+
+* Posible sesgo en la recolección. 
+* Subjetividad en la anotación.
+
+
+La misoginia, lamentablemente, se puede presentar tanto explícita como implícitamente, a veces incluso disfrazada de expresiones neutras y/o humorísticas. Es por ello que se determinó que un corpus nutrido de diversas fuentes, aún con las limitantes mencionadas anteriormente, constituye un buen punto de partida para un sistema de clasificación automática. 
 
 ## Análisis Exploratorio de la Base de Datos. 
 
@@ -46,8 +98,6 @@ En la figura BLABLA se observa la distribución de la cantidad de palabras por c
 ### Análisis léxico.
 
 Se realizó un análisis de frecuencia de palabras por clase violenta/no violenta. Como puede verse en las tablas BLABLA,BLABLA los textos violentos cuentan con una alta frecuencia de términos en español explícitamente agresivos/degradantes contra la mujer. Por otro lado, los textos no violentos presentan una terminología mucho más neutral, ambigua. Esta característica de la base de datos sugiere que hay una varianza/diferencia léxica clara (palabras muy distintas entre clases) que modelos de clasificación pueden potencialmente detectar. No obstante, vale la pena mencionar que también existe vocabulario en común (la palabra **mujer** es un claro ejemplo) que sugieren una varianza semántica. Por decirlo simplemente, las palabras encierran un patrón de diferenciamiento, efectivamente, pero también el contexto.
-
-
 
 
 #### Solapamiento léxico entre clases.
@@ -70,14 +120,47 @@ El coeficiente de similitud de Jaccard entre los textos violentos y no violentos
 
 Existe un conjunto significativo de palabras distintivas asociadas a los textos violentos, por lo que muchos términos por si mismos pueden ayudar a identificar
 contenido violento/ no violento. Sin embargo también existen 3202 palabras que se solapan, lo cual aunado a un coeficiente de Jaccard de .18,
-este valor sugiere que existe un conjunto considerable (3202) de palabras compartidas entre ambos tipos de textos lo cual pueder
+este valor sugiere que existe un conjunto considerable (3202) de palabras compartidas entre ambos tipos de textos lo cual puede
 sugerir que los sistemas de clasificación que tomen en cuenta diferencias léxicas y semánticas pueden tener un mejor desempeñó que aquellos que solo tomen
-en cuenta las dierencias léxicas entre los textos. 
+en cuenta las diferentes palabras entre los textos. 
 
 
 ### Palabras discriminativas. 
 
+NOTA: Conectar con los coeficientes de regresión logística después y comparar. 
+
 A continuación, para identificar términos representativos de cada tipo de texto, se calculó el logaritmo del cociente de frecuencias entre palabras de ambos textos. 
+
+log-odds(w) = log₂((f_v(w) + 1) / (f_nv(w) + 1))
+
+f_v es la frecuencia de la palabra w en la clase violenta.
+f_nv es la frecuencia de la palabra w en la clase no violenta. 
+
+el +1 corresponde a una constante de suavizamiento que evita la división entre 0 para palabras que no existen en los textos no violentos. 
+
+Si comparamos el cociente, sabemos que un valor > 1 corresponde a palabras que aparecen mas en la clase violenta, y < 1 palabras que aparecen más en la case no violenta. 
+Sin embargo, el valor del cociente no es muy comparable visualmente entre palabras en términos de magnitudes, por lo que una vez que aplicamos el logaritmo base 2, obtenemos simetría. 
+
+Ejemplo:
+
+Tomemos dos palabras, A y B. 
+
+ A aparece en 99 textos violentos, y en 9 textos no violentos. 
+ B aparecen en 99 textos no violentos y en 9 textos violentos.
+
+
+Para una palabra A: 100/10 = 10
+
+Para una palabra B: 10/100 = .1
+
+Si aplicamos el logaritmo base 2:
+
+Para una palabra A: log2(10) = + 3.32
+
+Para una palabra B: log2(.1) = - 3.32
+
+Por lo tanto , para valores > 0 la palabra w aparece más en la clase violenta. En correspondencia, para valores < 0 la palabra w aparece más en la clase no violenta. Esta métrica nos permite comparar palabras entre sí y detectar aquellas que son representativas de cada clase. 
+
 
 En la figura BLABLAB se puede apreciar que los textos violentos, como se mencionó anteriormente, tienen como términos dominantes palabrás violentas y explícitas, contrario a los términos de la clase no misógina. Nuevamente se sospecha que las señales léxicas son la mejor forma de diferenciación, sin dejar de lado, en menor forma, las señales semánticas asociadas muchas veces a contenido implícito. 
 
@@ -85,9 +168,21 @@ En la figura BLABLAB se puede apreciar que los textos violentos, como se mencion
 
 ### Análisis de n-gramas. 
 
-Se realizó 
+Con respecto al contenido semántico de los textos se realizó un análisis de bigramas y trigramas para detectar la frecuencia de patrones compuestos, así como la posible evidencia de señal semántica. 
 
-### Representaciones visuales (nubes de palabras). 
+Como se observa en las tablas BLABLA, la presencia de palabras explícitas no necesariamente indica violencia, el contexto es necesario para determinarlo, y este se puede inferir a partir de las combinaciones de palabras. Esto señala que un sistema de clasificación precisio necesita capturar la señal relacionada a estas combinaciones, no puede reducirse al significado y/o presencia de palabras individuales. 
+
+### Representaciones visuales.
+
+A continuación se presentan las nubes de palabras asociadas a cada clase. Estas representaciones permiten observar la predominancia de ciertos términos en cada clase, asi como en la base de datos. 
+
+
+El análisis exploratorio claramente demuestra señales léxicas importantes en la base de datos, específicamente en la clase misógina. Sin embargo, también hay que recalcar que existe un importante conjunto de vocabulario compartido entre clases, lo que justifica la necesidad de incorporar preprocesamiento que capture también la señal semántica, contextual y no sólo la que corresponde a vocabulario. El fenómeno como bien lo sugiere la introducción, abarca contenido explícito así como implícito, por lo que es importante capturar la señal de ambos. 
+
+## Preprocesamiento.
+
+
+
 
 
 
