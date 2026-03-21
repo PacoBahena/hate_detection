@@ -181,6 +181,168 @@ El análisis exploratorio claramente demuestra señales léxicas importantes en 
 
 ## Preprocesamiento.
 
+El preprocesamiento del texto es un paso crucial para diseñar un sistema de clasificación de lenguaje natural y comprende dos fases:
+
+1. Limpieza: Es necesario reducir el ruido presente en los textos, manteniendo el contenido léxico-semántico relevante y facilitar la extracción de patrones discriminativos.
+2. Transformación: Es necesario transformar los textos a representaciones numéricas adecuadas para los algoritmos de aprendizaje autómático.
+
+Ya que en su mayoría, la base de datos consiste en en textos cortos provenientes de entornos digitales, el proceso de limpieza fue diseñado de forma conservadora, evitando ediciones u omisiones que pudieran eliminar información contextual. 
+
+### Limpieza. 
+
+Se llevaron a cabo las siguientes transformaciones:
+
+* Eliminación de urls.:
+
+  Las urls son efectivamente textos que en muy raras ocasiones aportan información relevante de la clasificación.
+
+* Conversión a minúsculas:
+
+  Para simplificar el entrenamiento de los sistemas, esta conversión simplifica la administración de tokens, donde Mujer, mujer o MUJER, representan la misma palabra y no tres distintas.
+
+* Corrección de abreviaciones comunes:
+
+  Es una practica común de los hispanohablantes el abreviar ciertas trancisiones comúnes. q -> que d -> de, grax -> gracias, etc. La normalización de los mismos consolidará la señal léxica. 
+
+* Homologación de espacio antes y después de cada texto:
+
+* Eliminación de textos de una sola palabra. 
+
+* Eliminación de textos que solo contenían una url/imagen.
+
+* Eliminación de emojis. Considerando que su contribución semántica es limitada y requiere un procesamiento especial, se eliminaron del vocabulario.
+
+Las decisiones que se tomaron en materia de limpieza tienen como fin reducir la dispersión del vocabulario, contando con representaciones consistentes de palabras/entidades, que de ser tratadas como palabras distintas, agregarían varianza innecesaria a los modelos a entrenar. 
+
+### Metodos de representación de textos 
+
+Para entrenar un sistema de clasificación de textos, es preciso transformarlos a representaciones numéricas significativas. 
+
+Entre los métodos más comunes destacan: 
+
+* Bolsas de palabras (Bag of words)
+
+* *TFIDF*
+
+* *Embeddings*
+
+El primero tiene limitaciones significativas al respecto de separar la señal del ruido, el segundo funciona bastante bien para detectar señal léxica y el último detecta tanto señal léxica como semántica, como se verá más adelante, sólo se optaron por los últimos dos dadas las limitantes del primero.  
+
+#### Bolsas de palabras. 
+
+Dado un documento de texto, esta transformación consiste en un vector con las frecuencias de aparición de cada término en el documento.
+
+Ejemplo
+Observación A "Nunca Nunca confies en una mujer" -> [Nunca -> 2, confies -> 1, en -> 1, una -> 1, mujer -> 1].
+
+Este enfoque es seriamente limitado por que no considera el poder discriminativo de los términos, su relevancia global en un corpus de documentos, así como la crelación semántica/ contexto entre los términos.
+
+#### *TFIDF*
+
+Consiste en generar vectores de alta dimensionalidad que reflejen la importancia de cada palabra en el corpus.
+Nótese que el resultado es proporcional a la frecuencia de la palabra en un sólo texto e inversamente proporcional a 
+la presencia del término en todos los documentos. 
+
+Es importante señalar que este método no captura relaciones entre términos. Por que la señal semántica derivada de ciertas combinaciones o mensajes implícitos le es invisible. 
+
+Fórmula: tf-idf(t,d) = tf(t,d) * [log(N+1/df(t)+1)+1]
+
+Ejemplo
+Observación A "las mujeres deben ser calladas" 
+Observación A "Los derechos de las mujeres han mejorado"
+Observación C "prefiero hombres para este trabajo"
+
+Tablas.
+
+Notas: 
+
+"Mujeres" tiene poco poder discriminativo por que aparece en dos textos.
+"Calladas" y "deben" destacan en su tf-idf por que solo aparecen una vez.
+las palabras de la observación C, que es misoginia implícita tienen tambien un tfidf alto
+pero ninguna es explícitamente ofensiva por sí sola. Esto es una de las limitaciones de tfidf. El contexto. 
+
+Nota:
+
+La métrica de idf suele ser suavizada para evitar que sea 0. 
+Frecuentemente, se aplica una normalización de tipo l2 al vector para hacerlo de norma 1 y hacerlo comparable a otros documentos, independientemente de su longitud.
+
+#### *Embeddings* 
+
+Los *embeddings* representan palabras o textos como vectores densos en un espacio continuo. Contrario a tf-idf y bolsa de palabras, estos vectores si capturan relaciones semánticas entre los términos. Dicho de otra forma, permiten modelar el contexto. Esto probablemente sea útil al momento de detectar misoginia implícita, donde el contexto la determina, en vez de palabras individuales. 
+
+Cada documento/texto, se representa como un vector en un espacio multidimensional. La idea fundamental de los embeddings como transformación es que documentos con significado/contexto similar sean representados por vectores cercanos/similares entre sí. 
+
+En este caso, la definición de cercanía/similitud entre dos documentos se da  por la fórmula de la similitud coseno, la cual se define como: 
+
+FORMULA SIMILITUD COSENO.
+
+Valores cercanos a 1 imiplican alta similitud semántica, mientas que valores cercanos a 0 indican baja relación. 
+
+
+Existen dos grandes categorías de embeddings :
+
+Embeddings estáticos (e.g., FastText):
+asignan un mismo vector a cada palabra independientemente del contexto.
+
+Embeddings contextuales (e.g., MiniLM, LaBSE):
+generan representaciones que dependen del contexto en el que aparece la palabra o el texto completo.
+
+En este trabajo, el uso de embeddings contextuales permitió capturar formas implícitas de misoginia que no pueden ser identificadas únicamente mediante señales léxicas.
+
+Validación empírica de embeddings usando mini lm. 
+
+Similitudes coseno
+
+Se calcularon los embeddings preentrenados para las siguientes palabras y posteriormente
+se calcularon las similitudes coseno entre los vectores de las mismas.
+
+Similitudes coseno.
+
+mujer - mujeres      : 0.878
+mujer - femenina     : 0.968
+inferior - débil     : 0.674
+insulto - desprecio  : 0.760
+violencia - agresión : 0.857
+
+Se observa que términos semánticamente relacionados presentan alta similitud, por ejemplo:
+
+mujer – mujeres (0.878)
+
+mujer – femenina (0.968)
+
+Asimismo, términos asociados a atributos negativos y lenguaje ofensivo también se agrupan de forma coherente:
+
+inferior – débil (0.674)
+
+insulto – desprecio (0.760)
+
+violencia – agresión (0.857)
+
+Estos resultados evidencian que los embeddings organizan las representaciones en función del significado, capturando relaciones semánticas consistentes más allá de coincidencias léxicas.
+
+
+### Consideraciones sobre *stop words*
+
+Las stop words son palabras de alta frecuencia que, en muchas tareas de procesamiento de lenguaje natural, suelen aportar poca relevancia discriminativa. Frecuentemente consisten de artículos, preposiciones y/o conjunciones como: *el*, *la*, *que*, *en*, etc.
+
+Como se verá más adelante, sólo se utilizaron los métodos TFIDF, así como los embeddings por lo que se tomo la decisión de no eliminar las stop words. Asimismo, debido a que la mayoría de las observaciones son textos cortos, estas pueden llegar a formar parte del contexto del mensaje. 
+
+No es necesario preocuparse acerca de agregar varianza innecesaria al entrenamiento de los algoritmos. En el caso de tf-idf, dada la naturaleza de esa transformación, las stop words tienen su relevancia severamente penalizada. En el caso de los embeddings, las stop-words aportan contexto semántico por lo que es preciso mantenerlas. 
+
+### Consideraciones sobre lematización
+
+La lematización transforma palabras a su forma canónica, preservando su significado, con el objetivo de reducir la variabilidad léxica en el procesamiento de texto
+
+No se aplicó lematización, dado que:
+
+En modelos basados en embeddings, las variaciones morfológicas son capturadas de manera natural.
+
+En TF-IDF, la reducción puede eliminar señales relevantes o introducir ambigüedad en ciertos contextos.
+
+## Modelado
+
+
+
 
 
 
