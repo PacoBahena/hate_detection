@@ -341,6 +341,222 @@ En TF-IDF, la reducción puede eliminar señales relevantes o introducir ambigü
 
 ## Modelado
 
+### Herramientas
+
+Se utilizó la librería *scikit-learn* para la implementación de los modelos, debido a que proporciona algoritmos de aprendizaje de máquina robustos y estandarizados, así como herramientas integradas para validación cruzada y optimización de hiperparámetros. Su uso facilita la reproducibilidad de los experimentos y la consistencia en la evaluación de los modelos.
+
+### División de los datos. 
+
+La base de datos fue dividida en dos conjuntos, entrenamiento y prueba, en una proporción del 70%-30% respectivamente. Esto con el fin de evaluar el desempeño de los modelos de clasificación, así como su capacidad de generalizar a datos sobre los cuales no fueron entrenados. 
+
+La base cuenta con más observaciones misóginas vs no misóginas. En términos de representatividad, lo más deseable es que la proporción de de los datos misóginos-no-misóginos represente la distribución real. Esta última es, lamentablemente, desconocida, ya que no hay evidencia que sugiera una distribución/proporción específica.
+
+Si la proporción de los datos misóginos/no-misóginos es aproximadamente 3:1 tanto en el conjunto de entrenamiento como en el de prueba, se corre el riesgo de introducir un sesgo hacia la clase mayoritaria (textos misóginos), lo cual puede afectar su capacidad para generalizar correctamente, especialmente en la detección de la clase minoritaria. Para mitigar este efecto, se adoptaron estrategias diferenciadas para cada subconjunto.
+
+En el conjunto de entrenamiento se decidió conservar la distribución original de las clases. Esta decisión tiene como objetivo evitar la pérdida de información relevante, especialmente en la clase mayoritaria, que contiene una mayor variedad de patrones. Técnicas de sobremuestreo no fueron consideradas debido que implicarían agregar redundancia artificial. Por lo tanto, se decidió ponderar de forma distinta los errores de clasificación, mediante la modificación de la funcion de pérdida de forma inversamente proporcional a la frecuencia de cada clase. Dicho de otra forma, los errores de clasificación cometidos sobre la clase minoritaria serían penalizados en mayor forma que aquellos sobre la clase mayoritaria. Con esta medida, se corrige el sesgo de los datos hacia la clase misógina, sin perder información relevante.
+
+Un ejemplo con entropía cruzada. (*log loss*), nótese:
+
+$$
+\mathcal{L} = - \frac{1}{N} \sum_{i=1}^{N} w_{y_i}
+\left[
+y_i \log(\hat{y}_i) + (1 - y_i)\log(1 - \hat{y}_i)
+\right]
+$$
+
+$$
+w_{y_i} = w_c \quad \text{con } c = y_i
+$$
+
+$$
+w_c = \frac{N}{n_c}
+$$
+
+Donde:
+
+- $N$ representa el número total de observaciones en el conjunto de entrenamiento.
+
+- $i$ indexa cada una de las observaciones, de modo que $i = 1, 2, \dots, N$.
+
+- $y_i \in \{0,1\}$ es la etiqueta real de la observación $i$, donde $1$ representa la clase misógina y $0$ la clase no misógina.
+
+- $\hat{y}_i$ es la probabilidad estimada por el modelo de que la observación $i$ pertenezca a la clase positiva.
+
+- $\mathcal{L}$ es la función de pérdida (*loss function*), la cual mide qué tan bien se ajusta el modelo a los datos.
+
+- $w_{y_i}$ es el peso asignado a la observación $i$, determinado por la clase a la que pertenece.
+
+- $w_c$ es el peso asociado a la clase $c$, definido en función del número de observaciones de dicha clase.
+
+- $n_c$ representa el número de observaciones pertenecientes a la clase $c$.
+  
+
+Por otro lado, el conjunto de prueba fue balanceado. Esta decisión permite evaluar el desempeño de los modelos de manera equitativa entre clases, evitando que métricas agregadas se vean influenciadas por la distribución original de la base datos.
+
+De manera complementaria, en los apéndices se incluye la evaluación sobre el conjunto de prueba desbalanceado, cuyos resultados fueron consistentes con la evaluación principal
+
+### Validación e Hiperparámetros
+
+Para el entrenamiento de los modelos y la selección de hiperparámetros, se decidió usar validación cruzada (*Cross Validation*), en combinación con búsqueda exhaustiva hiperparámetros (*GridSearch*)
+
+#### Validación Cruzada.
+
+Para entrenar un modelo, comúnmente se divide la base de entrenamiento en dos: entrenamiento y validación. Por ello el desempeño del modelo esta ligado a la partición elegida. En contraparte la validación cruzada consiste en dividir los datos de entrenamiento en múltiples particiones (*folds*), entrenando el modelo en un subconjunto de ellas y validandolo en la particion restante, repitiendo el proceso hasta que todas las particiones hayan sido utilizadas como conjunto de validación. Esto permite obtener una estimación más robusta y estable del rendimiento promedio del modelo y ayuda a prevenir el sobreajuste.
+
+#### Búsqueda Exhaustiva. 
+
+La búsqueda exhaustiva es una tecnica de optimización de hiperparámetros de modelos. Consiste en evaluar todas las combinaciones posibles dentro de un conjunto predefinido de valores. Para cada combinación, el modelo a entrenar es entrenado y evaluado, junto con validación cruzada, con respecto a la métrica de desempeño a optimizar. PAra efcetos de nuestro objetivo, esta es la precisión.
+
+En vez de seleccionar hiperparámetros de forma arbitraria, este mecanismo nos permite explorar las distintas combinaciones del espacio hiperparametral para optimizar los modelos. 
+
+En el ejemplo que se muestra a continuación, se definió una malla de hiperparámetros para el ajuste de un modelo de regresión logística. 
+
+En particular, se consideraron cuatro valores para el parámetro de regularización `C`, dos tipos de penalización `l` y dos algoritmos de optimización.
+
+En total, la rejilla tiene 4×2×2=16 combinaciones posibles. Para cada una de ellas, se entrena un modelo utilizando validación cruzada y se evalúa con base en la métrica de precisión.
+
+Ejemplo: 
+```python
+param_grid_logreg = {
+    'logreg__C': [0.01, 0.1, 1, 10],
+    'logreg__penalty': ['l1', 'l2'],
+    'logreg__solver': ['liblinear','saga'],
+}
+```
+
+### Métrica a Optimizar.
+
+Bajo el supuesto que el sistema de clasificación de misogínia a entrenar puede ser utilizado como un sistema de moderación, se decidió optimizar el ajuste de los modelos con respecto a la precisión de detección sobre la clase misógina. 
+
+En un sistema de clasificación binario existen dos tipos de errores, falso positivo y falso negativo. En un sistema de moderación/ detección de contenido violento/misogino se considera más grave un falso positivo (clasificar texto como misógino cuando en realidad no lo es), ya que conlleva una posibilidad de penalización, veto o censura. Dicho de otra forma, se prioriza el ajuste de un modelo conservador, que si afirma detectar contenido misógino, lo haga con un alto grado de confianza.
+
+En menor medida, se consideró también el recall como métrica complementaria, con el fin de armonizar, una alta precisión con una (en menor medida) alta capacidad de detección.
+
+$$
+\text{Precision} = \frac{TP}{TP + FP} \tag{1}
+$$
+
+$$
+\text{Recall} = \frac{TP}{TP + FN} \tag{2}
+$$
+
+Una vez que se obtengan modelos candidatos a ser puestos en producción, se revisitará este trade-off entre precision y recall para optimizar los umbrales de decisión.
+
+### Modelos.
+
+#### Representaciones de texto.
+
+Se evaluaron distintas representaciones del texto con el objetivo de analizar su impacto en el desempeño de los modelos. 
+
+En particular, se utilizaron representaciones basadas en conteo de palabras (*Bag of Words*) mediante *CountVectorizer*, así como representaciones TF-IDF, que ponderan la importancia de los términos en función de su frecuencia relativa en el corpus.
+
+Adicionalmente, se evaluaron representaciones basadas en embeddings, tanto estáticos (FastText) como contextuales (MiniLM y LaBSE), las cuales permiten capturar relaciones semánticas más complejas entre palabras.
+
+Estas representaciones fueron previamente descritas en la sección de preprocesamiento, por lo que en esta sección se enfatiza su uso dentro del proceso de modelado.
+
+#### Modelos a Entrenar
+
+Se evaluaron distintos modelos de clasificación supervisada con el objetivo de comparar su desempeño bajo las diferentes representaciones del texto.
+
+* Naive Bayes 
+* Regresión logística
+* Máquina de soporte vectorial.
+* Bosques aleatorios. 
+
+#### Naive Bayes
+
+Como modelo base, se utilizó un clasificador Naive Bayes en su variante multinomial. Este modelo se basa en el teorema de Bayes, bajo la suposición de independencia condicional entre las características.
+
+$$
+P(y \mid x) \propto P(y)\prod_{j=1}^{d} P(x_j \mid y)
+$$
+
+En el caso multinomial, donde se consideran frecuencias de palabras:
+
+$$
+P(x \mid y) \propto \prod_{j=1}^{d} P(w_j \mid y)^{x_j}
+$$
+
+donde $x_j$ representa la frecuencia del término $w_j$ en el documento.
+
+Este modelo permite establecer una línea base basada en señales léxicas.
+
+---
+
+#### Regresión logística
+
+La regresión logística es un modelo lineal que estima la probabilidad de pertenencia a una clase mediante la función sigmoide aplicada a una combinación lineal de las características:
+
+$$
+\hat{y} = \sigma(w^T x + b) = \frac{1}{1 + e^{-(w^T x + b)}}
+$$
+
+El modelo se entrena minimizando la función de pérdida logarítmica (entropía cruzada):
+
+$$
+\mathcal{L} = - \frac{1}{N} \sum_{i=1}^{N} 
+\left[
+y_i \log(\hat{y}_i) + (1 - y_i)\log(1 - \hat{y}_i)
+\right]
+$$
+
+Este modelo es particularmente adecuado para datos de alta dimensionalidad y permite aprender pesos discriminativos para cada característica.
+
+
+
+#### Máquinas de soporte vectorial (SVC)
+
+Las máquinas de soporte vectorial buscan encontrar un hiperplano que maximice la separación entre clases en el espacio de características:
+
+$$
+f(x) = w^T x + b
+$$
+
+El modelo se entrena resolviendo el siguiente problema de optimización:
+
+$$
+\min_{w,b} \frac{1}{2} ||w||^2 + C \sum_{i=1}^{N} \xi_i
+$$
+
+sujeto a:
+
+$$
+y_i (w^T x_i + b) \geq 1 - \xi_i, \quad \xi_i \geq 0
+$$
+
+donde $C$ controla el balance entre maximizar el margen y penalizar errores de clasificación.
+
+En este trabajo se emplearon principalmente versiones lineales de SVC, dado su buen desempeño en espacios de alta dimensionalidad.
+
+
+
+#### Random Forest
+
+Random Forest es un modelo basado en conjuntos de árboles de decisión. Cada árbol realiza una predicción y el resultado final se obtiene mediante votación mayoritaria:
+
+$$
+\hat{y} = \text{mode} \{ h_1(x), h_2(x), \dots, h_T(x) \}
+$$
+
+donde $h_t(x)$ representa la predicción del árbol $t$.
+
+Este modelo permite capturar relaciones no lineales entre variables, aunque su desempeño en representaciones de texto de alta dimensionalidad suele ser inferior al de modelos lineales.
+
+
+## Evaluación y Resultados. 
+
+## Optimización de Umbral y Calibración.
+
+## Análisis de Errores
+
+## Discusión 
+
+## Trabajo Futuro.
+
+
+
+
+
 
 
 
