@@ -411,16 +411,15 @@ En vez de seleccionar hiperparámetros de forma arbitraria, este mecanismo nos p
 
 En el ejemplo que se muestra a continuación, se definió una malla de hiperparámetros para el ajuste de un modelo de regresión logística. 
 
-En particular, se consideraron cuatro valores para el parámetro de regularización `C`, dos tipos de penalización `l` y dos algoritmos de optimización.
+En particular, se consideraron cuatro valores para el parámetro de regularización `C`, dos tipos de penalización `l`.
 
-En total, la rejilla tiene 4×2×2=16 combinaciones posibles. Para cada una de ellas, se entrena un modelo utilizando validación cruzada y se evalúa con base en la métrica de precisión.
+En total, la rejilla tiene 4×2=8 combinaciones posibles. Para cada una de ellas, se entrena un modelo utilizando validación cruzada y se evalúa con base en la métrica de precisión.
 
-Ejemplo: 
+
 ```python
 param_grid_logreg = {
     'logreg__C': [0.01, 0.1, 1, 10],
-    'logreg__penalty': ['l1', 'l2'],
-    'logreg__solver': ['liblinear','saga'],
+    'logreg__penalty': ['l1', 'l2']
 }
 ```
 
@@ -545,11 +544,145 @@ Este modelo permite capturar relaciones no lineales entre variables, aunque su d
 
 ## Evaluación y Resultados. 
 
-## Optimización de Umbral y Calibración.
+### 6.1 Resultados generales. 
+
+Para cada tipo de modelo, y mediante la búsqueda exhaustiva con validación cruzada sobre el conjunto de entrenamiento, se seleccionaron los hiperparámetros que tuvieron el mejor desempeño en términos de precisión para detectar misoginia. La siguiente tabla presenta las configuraciones óptimas. 
+
+Posteriormente se evaluó el desempeño de los modelos seleccionados sobre el conjunto de prueba. La siguiente tabla presenta los resultados en términos de precisión, recall y f1-score. 
+
+Es importante señalar que se observa una mejora en el desempeño de los modelos en la medida en que las representaciones de texto se vuelven más complejas, pasando de enfoques basados en frecuencias hasta representaciones semánticas*embeddings*. La naturaleza de esta mejora es consistente con la literatura, quqe afirma que las representaciones qque consideran el contexto y la semántica tienen mejores resultados, contrario a representaciones solamente basadas en frecuencias.
+
+### Modelo base: Naive Bayes.
+
+Como modelo base, se seleccionó el clasificador *Naive Bayes*, empleando representaciones basadas en conteos de palabras. 
+
+Como se puede observar en la tabla, si bien tiene un recall competitivo (.89) su precisión (.82) es comparativamente la peor de todos los modelos, por lo que incurrirá en falsos positivos con mayor propensión que los demás modelos.
+
+Esto se debe a la naturaleza del modelo ya que asume independencia condicional entre las características/palabras del texto, por lo que podemos decir que sobre-reacciona a palabras frecuentes en la clase misogina, pero es incapaz de hacer una discriminación más fina, que tome en cuenta contexto y/o las relaciones entre palabras.
+
+### Comparación en cuanto representación del texto.
+
+#### Modelos con representaciones *tf-idf*
+
+El uso de representaciones *tf-idf* mejora la precisión de los modelos considerablemente. Tanto el modelo de regresión logística como bosques aleatorios obtuvieron una precisión de .89 y .90, respectivamente. Sin embargo, el recall empeoró bastante, por lo que si bien estos modelos son precisos (pocos falsos positivos), su capacidad detección es menor (bastantes falsos negativos).
+
+A diferencia de la bolsa de palabras, la representación tf-idf toma en cuenta tanto la frecuencia asi como la relevancia de los términos en un corpus. Las palabras redundantes, reciben, debido a ello un menor peso en el modelo. No obstante, tf-idf no captura información contextual-semántica como sí lo hacen las representaciones basadas en embeddings. 
+
+La mejora en precisión sugiere que los modelos tienen la capacidad de detectar la señal léxica asociada a la presencia o no de ciertos términos basados en su importancia relativa. No obstante, el recall es sumamente inferior al obtenido en sus variantes con embeddings, lo que sugiere la presencia de una señal semántica, contextual, que también permite diferenciar entre clases. Dado ese nivel de recall, la capacidad de detección es insuficiente, ya que deja de detectar muchos textos misóginos. 
+
+#### Modelos basados en *embeddings*.
+
+Los mejores modelos fueron aquellos que utilizaron *embeddings* como representaciones de texto. En particular aquellos que usan las representaciones *labse*.
+
+Consistentemente, los modelos con embeddings presentaron una mejoría en recall respecto a los modelos qque usaron tf-idf, manteniendo o incluso mejorando los niveles de precisión. A partir de esto se puede inferir que las representaciones semánticas permiten detectar relaciones entre palabras, que para enfoques puramente léxicos, son invisibles.
+
+Entre los diversos embeddings que se probaron, minilm y fast text presentan métricas cercanas pero ligeramente inferiores a labse. Esto puede explicarse por la capacidad de estas ultimas para capturar relaciones en múltipes variantes del español. 
+
+### Comparación en cuanto a la arquitectura de los modelos. 
+
+En cuanto a las familias de modelos, se observa una clara superioridad de los modelos lineales frente a aquellos basados en árboles o kernels no lineales. Este resultado se confirma no solo en el desempeño sobre el conjunto de prueba, sino también en la consistencia entre la precisión obtenida sobre el conjunto de entrenamiento (precision_training) y la observada en el conjunto de prueba.
+
+#### Regresión Logística
+
+Los modelos de regresión logística, particularmente con representaciones basadas en embeddings, presentan un desempeño bastante consistente con valores de precisión y recall mayores al 90%. Estos modelos rara vez se equivocan para etiquetar textos misóginos, y su capacidad de detección también es bastante alta. Adicionalmente, la diferencia entre la precisión obtenida sobre el conjunto de entrenamiento ( 0.97) y la observada en el conjunto de prueba (≈ 0.90) es moderada, lo cual indica una buena capacidad de generalización.
+
+Cabe resaltar que en regresión logistica con representaciones tf-idf, los hiperparámetros óptimos fueron la regularización l1 (lasso), asi como un parámetro de regularización C = 1, que se considera moderado. Esto se puede explicar con la naturaleza del espacio generado por las representaciones tf-idf el cual puede considerar disperso (*sparse*), y donde el modelo se ajusta mejor eliminando términos irrelevantes del texto. Sin embargo, como se vio con la evaluación sobre el conjunto de prueba, la capacidad de detección y generalización de este modelo es limitada.
+
+Por otra parte, en los modelos con embeddings, llama la atención que para los distintos tipos de embeddings (fast, minilm y labse), los parámetros optimos sugieren una regularización alta que le permita al modelo generalizar. Asimismo, el tipo óptimo de regularización es ridge l2, que suaviza, no selecciona, el aporte de los textos al modelo. Esto se puede explicar por que el espacio de embeddings, comparado al de tfidf es denso y estructurado, por lo que no es conveniente eliminar/seleccionar características.
+
+
+#### Máquinas de soporte vectorial 
+
+Los resultados de las máquinas de soporte vectorial dependen principalmente de la representación del texto.
+
+En los modelos con TF-IDF, los parámetros óptimos corresponden a un valor elevado de C=100 (baja regularización) junto con un kernel no lineal RBF. Aunque estos modelos alcanzan valores elevados de precisión sobre el conjunto de entrenamiento (≈ 0.95), su desempeño en el conjunto de prueba es considerablemente inferior (≈ 0.83 en precisión y bajo recall). El uso de kernels no lineales en espacios de alta dimensionalidad, como los generados por TF-IDF, introduce complejidad innecesaria sin mejorar el desempeño. Dado que estos espacios tienden a ser aproximadamente linealmente separables, esta combinación favorece el sobreajuste, lo que implica que el modelo está capturando patrones específicos del conjunto de entrenamiento que no son generalizables a nuevos datos.
+
+
+En contraste, en los modelos con embeddings se observa que los valores óptimos corresponden a C = .1, lo que implica una mayor regularización, junto con el uso de un kernel lineal. En estos modelos, la diferencia entre la precisión del conjunto de entrenamiento (≈ 0.95) y el conjunto de prueba (≈ 0.88–0.89) es menor, lo cual indica una mejor capacidad de generalización que los modelos tf-idf. Esto sugiere que el problema es aproximadamente linealmente separable en el espacio de embeddings, y que modelos lineales son suficientes para capturarlo de manera efectiva. En particular, ese modelo con representaciones labse obtuvo un desempeño bastante competitivo comparable al modelo de regresión logística con *embeddings* labse.
+
+
+#### Bosques Aleatorios
+
+Los bosques aleatorios, si bien tuvieron una alta precisión, tienen un recall muy inferior a sus contrapartes lineales (.74), lo que indica que aunque preciso, este modelo es muy conservador y tiene una reducida capacidad de detección. Este comportamiento se puede explicar por la naturaleza del modelo, ya que construye reglas locales sobre subconjuntos de los datos, lo cual puede limitar la capacidad de generalización en espacios de alta dimensionalidad como lo son los problemas de texto. El desempeño es insuficiente comparado con los modelos lineales que operan sobre todo el espacio de características. 
+
+Si bien la diferencia entre la precisión en el conjunto de entrenamiento y en el conjunto de prueba es comparable a la de otros modelos, el bajo recall y f1-score evidencia una capacidad de generalización inferior a los modelos lineales.
+
+### Selección de modelos candidatos.
+
+Los modelos que tuvieron el mejor desempeño, esto es el mejor balance entre una precisión y recall altos (En ese orden), fueron 
+la regresión logística con embeddings Labse y la máquina de soporte vectorial con embeddings labse. 
+
+Tabla.
+
+
+## Calibración.
+
+En un sistema de clasificación binaria, además de la etiqueta de la clasificación, es importante analizar la confiabilidad de las probabilidades asociadas a cada predicción. Un modelo se considera confiable/bien calibrado cuando sus probabilidades predichas reflejan adecuadamente la frecuencia real de la clase positiva; es decir, entre todos los casos con probabilidad p, aproximadamente una fracción p pertenece realmente a dicha clase.
+
+Específicamente para un detector de misoginia, la calibración es importante ya que las decisiones finales (misógino/no misógino) dependen de la selección de un umbral sobre las probabilidades. Debido a ello, probabilidades mal calibradas pueden conducir a decisiones subóptimas, incluso si el modelo presenta un buen desempeño en términos de clasificación.
+
+### Evaluación de caliubración.
+
+La calibración de los modelos candidatos fue evaluada sobre el conjunto de prueba mediante dos métodos, curvas de calibración y el *Brier score*.
+
+#### Curvas de calibración. 
+
+
+Las curvas de calibración comparan las probabilidades predichas con la frecuencia relativa observada de la clase misógina en distintos intervalos de probabilidad, donde un modelo hipotéticamente perfectamente calibrado se visualizaría como una linea diagonal. 
+
+Los resultados muestran que el modelo de regresión logística con embeddings labSE presenta una curva de calibración muy cercana a la diagonal., lo cual indica uqe las probabilidades del modelo son consistentes con las proporciones de la clase misógina. Este hecho sugiere que el modelo esta bien calibrado. 
+
+A diferencia de la regresión logística, que estima probabilidades por diseño, las máquinas de soporte vectorial generan puntajes (scores) de decisión. Para obtener probabilidades, se utiliza un proceso de calibración conocido como escalamiento de Platt, donde se ajusta una función sigmoide sobre dichos puntajes.
+
+Sin embargo, la curva de calibración del modelo SVC presenta una desviación considerable respecto a la diagonal, lo cual indica que sus probabilidades son menos confiables en comparación con las de regresión logística.
+
+#### Brier Score.
+
+Como medida cuantitativa para analizar la confiabilidad de las predicciones de ambos modelos, se utilizó el *Brier score*.
+
+El Brier Score se define como el error cuadratico medio entre las probabilidades de un modelo y las etiquetas reales. Mientras menor sea el score, el modelo se considera bien calibrado y sus probabilidades confiables. 
+
+El modelo de regresión logística tuvo un brier score de .063 vs .0889 del modelo de la máqquina de soporte vectorial, lo cual confirma que la regresión logística produce probabilidades más confiables.
+
+tabla
+
+#### Selección del modelo de producción. 
+
+En conjunto, los resultados indican que, si bien ambos modelos presentan un buen desempeño en términos de clasificación, la regresión logística ofrece probabilidades significativamente mejor calibradas. Esto es consistente tanto con la forma de las curvas de calibración como con los valores del Brier score, por lo tanto, este es el modelo final para el sistema de clasificación. 
+
+## Ajuste de umbral de decisión.
+
+En un modelo de clasificación binaria, la decisión final se obtiene comparando la probabilidad predicha con un umbral, comúnmente fijado en 0.5. Sin embargo, este valor no necesariamente es óptimo, especialmente en contextos donde los costos asociados a los distintos tipos de error no son equivalentes.
+
+En este trabajo, el objetivo principal es maximizar la precisión en la detección de contenido misógino, minimizando la ocurrencia de falsos positivos. Por esta razón, se analizó el comportamiento del modelo para distintos valores de umbral, utilizando tablas/curvas de precisión–recall.
+
+### Compromiso entre precisión y recall.
+
+Como se observa en la Figura X, a medida que el umbral aumenta, el modelo se vuelve más conservador, lo que incrementa la precisión (se eqquivoca menos para detectar misoginia) pero reduce el recall (su capacidad detección disminuye). Este comportamiento refleja el compromiso inherente entre ambas métricas.
+
+Adicionalmente, se analizó el F1-score como métrica de referencia para identificar el punto de equilibrio entre precisión y recall. La Tabla X muestra los valores de precisión, recall y F1-score para distintos umbrales.
+
+El f1-score es la bblabla 
+
+### Selección de umbral 
+
+A partir de la tabla de resultados, se observa que el F1-score alcanza su valor máximo en el rango de umbrales entre aproximadamente 0.57 y 0.60, donde se logra un balance óptimo entre precisión y capacidad de detección.
+
+Por ejemplo, para un umbral cercano a 0.58, el modelo alcanza:
+
+Precisión ≈ 0.91
+Recall ≈ 0.87
+F1-score ≈ 0.89
+
+Es importante notar que, en este caso, el F1-score se ve más influenciado por el recall que por la precisión. Esto se debe a que la precisión se mantiene relativamente estable en el rango analizado, mientras que el recall presenta variaciones más pronunciadas. Como resultado, incrementos en el recall tienen un mayor impacto en el valor del F1-score.
+
+No obstante, dado que el objetivo principal del sistema es priorizar la precisión, se seleccionó un umbral ligeramente superior (≈ 0.60–0.62), donde la precisión alcanza valores cercanos a 0.92, a costa de una ligera reducción en el recall.
+
+Este ajuste permite obtener un modelo más conservador, en el cual las predicciones positivas corresponden a casos con un alto grado de confianza, de acuerdo al requerimiento donde el costo de un falso positivo es mayor al de un falso negativo. 
 
 ## Análisis de Errores
 
-## Discusión 
+## Discusión y Limitaciones.
 
 ## Trabajo Futuro.
 
