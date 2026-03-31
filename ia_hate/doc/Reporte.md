@@ -682,11 +682,31 @@ Este ajuste permite obtener un modelo más conservador, en el cual las prediccio
 
 ## Análisis de Errores
 
-## Discusión y Limitaciones.
+Con el objetivo de comprender las limitaciones del modelo, se analizaron ejemplos correspondientes a falsos positivos y falsos negativos en el conjunto de prueba.
+
+TABLAS
+
+En el caso de los falsos negativos, se observa que el modelo tiende a fallar en la detección de formas implícitas de misoginia. Muchos de estos ejemplos corresponden a expresiones que reflejan roles tradicionales de género o creencias culturales, sin utilizar lenguaje explícitamente ofensivo. Esto sugiere que, si bien el modelo captura adecuadamente señales léxicas, presenta dificultades para identificar contenido cuya interpretación depende del contexto o del significado implícito.
+
+Por otro lado, los falsos positivos muestran que el modelo tiende a clasificar como misóginos algunos textos que contienen términos asociados al dominio, como referencias a género o relaciones entre hombres y mujeres, aun cuando el contenido no es ofensivo. Esto indica que el modelo sobreestima la importancia de ciertas palabras clave en ausencia de un contexto claramente discriminatorio.
+
+## Conclusión.
+
+En este trabajo se abordó la tarea de detección automática de misoginia en textos cortos en español mediante técnicas de procesamiento de lenguaje natural y aprendizaje automático. Los resultados permiten caracterizar la tarea de detección de misoginia como un problema que combina componentes léxicos y semánticos.
+
+Por un lado, el desempeño del modelo base Naive Bayes y de los modelos basados en TF-IDF confirma la existencia de señales léxicas relevantes en el dataset. La presencia de términos explícitamente asociados a contenido ofensivo permite a estos modelos alcanzar un desempeño competitivo. No obstante, se ven superados por los modelos basados en embeddings, particularment Labse, que tienen una mejora consistente en desempeño general. Esto surgiere que las representaciones semánticas, permiten capturar patrones más complejos del lenguaje.
+
+Específicamente, la combinación de regresión logística con representaciones LaBSE, ofrece el mejor desempeño, logrando un balance adecuado entre precisión y recall. Este modelo no solo supera a los enfoques basados en representaciones léxicas tradicionales, sino que además presenta una mejor calibración de probabilidades, lo cual lo hace especialmente adecuado para su uso en sistemas de moderación.
+
+Finalmente, el análisis de errores revela que las principales limitaciones del modelo están asociadas a la detección de misoginia implícita y a la interpretación del contexto. Esto pone de manifiesto que, si bien los embeddings mejoran significativamente el desempeño, aún existen desafíos en la comprensión profunda del lenguaje.
 
 ## Trabajo Futuro.
 
+A partir de los resultados obtenidos, se identifican algunas líneas de trabajo con potencial de impacto significativo.
 
+En primer lugar, una limitación importante del presente trabajo es la variabilidad del idioma español entre distintas regiones. El significado, uso y connotación de ciertas expresiones puede variar considerablemente entre países, lo cual representa un desafío para la detección de misoginia. En este sentido, una línea de trabajo relevante consiste en desarrollar y evaluar modelos sobre datasets específicos por región o dialecto, lo que permitiría mejorar la capacidad de generalización del sistema en contextos culturales más acotados.
+
+En segundo lugar, la detección de misoginia implícita continúa siendo un reto importante. La incorporación de modelos más avanzados o el ajuste fino (fine-tuning) de modelos preentrenados sobre datos específicos del dominio podría mejorar la capacidad del sistema para capturar patrones contextuales más complejos.
 
 
 
